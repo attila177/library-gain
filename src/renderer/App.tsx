@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 const { ipcRenderer } = window.require('electron');
 
-function App() {
+export default function App() {
   const [files, setFiles] = useState<any[]>([]);
   const [targetDb, setTargetDb] = useState<string>("-14");
 

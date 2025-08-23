@@ -4,30 +4,38 @@ import ffmpeg from 'fluent-ffmpeg';
 export async function analyzeFile(filePath: string) {
   try {
     const metadata = await mm.parseFile(filePath);
-    const replayGain = metadata.common.replaygain_track_gain || "";
+
+    let replayGain: string = '';
+    const rg = (metadata.common as any).replaygain_track_gain;
+    if (rg) {
+      if (typeof rg === 'object') {
+        replayGain = rg.dB ? `${rg.dB} dB` : JSON.stringify(rg);
+      } else {
+        replayGain = String(rg);
+      }
+    }
+
     return new Promise((resolve) => {
+      let avgDb = '';
+      let maxDb = '';
+
       ffmpeg(filePath)
         .audioFilters('volumedetect')
         .format('null')
         .on('stderr', (line) => {
-          let avgDb = "";
-          let maxDb = "";
           if (line.includes('mean_volume')) {
             avgDb = line.split(':')[1].trim();
           }
           if (line.includes('max_volume')) {
             maxDb = line.split(':')[1].trim();
           }
-          if (avgDb || maxDb) {
-            resolve({ replayGain, avgDb, maxDb });
-          }
         })
         .on('end', () => {
-          resolve({ replayGain, avgDb: "", maxDb: "" });
+          resolve({ replayGain, avgDb, maxDb });
         })
         .saveToFile('/dev/null');
     });
   } catch (err) {
-    return { replayGain: "", avgDb: "", maxDb: "" };
+    return { replayGain: '', avgDb: '', maxDb: '' };
   }
 }
