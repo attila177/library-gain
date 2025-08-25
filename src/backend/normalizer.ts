@@ -2,12 +2,12 @@ import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import path from 'path';
 
-export interface FileInfo {
+export interface FileNormalizationInputData {
   path: string;
   maxDb: number;
 }
 
-export async function normalizeFiles(files: FileInfo[], targetDb: number) {
+export async function normalizeFiles(files: FileNormalizationInputData[], targetDb: number) {
   for (const file of files) {
     await new Promise((resolve, reject) => {
       const dir = path.dirname(file.path);
