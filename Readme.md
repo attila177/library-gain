@@ -1,3 +1,6 @@
+# Library Gain
+Graphical tool that analyzes mp3 files in a folder and applies volume normalization to them, overwriting the original files. The base of the source code was generated using ChatGPT 4. Main dependencies: electron, react, ffmpeg
+
 # original prompt
 
 ```
