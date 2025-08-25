@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'path';
 import { scanFolder } from '../backend/fileScanner';
 import { analyzeFile } from '../backend/analyzer';
-import { normalizeFiles } from '../backend/normalizer';
+import { FileInfo, normalizeFiles } from '../backend/normalizer';
 
 let win: BrowserWindow | null = null;
 
@@ -34,6 +34,6 @@ ipcMain.handle('analyze-file', async (_event, filePath: string) => {
   return await analyzeFile(filePath);
 });
 
-ipcMain.handle('normalize-files', async (_event, files: string[], targetDb: number) => {
+ipcMain.handle('normalize-files', async (_event, files: FileInfo[], targetDb: number) => {
   return await normalizeFiles(files, targetDb);
 });

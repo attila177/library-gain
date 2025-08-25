@@ -1,11 +1,19 @@
 import mm from 'music-metadata';
 import ffmpeg from 'fluent-ffmpeg';
 
-export async function analyzeFile(filePath: string) {
+export interface FileFfmpegAnalysisResult {
+  avgDb: number;
+  maxDb: number;
+  replayGain: string;
+}
+
+export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisResult> {
+  let avgDb: number = 0;
+  let maxDb: number = 0;
+  let replayGain: string = '';
   try {
     const metadata = await mm.parseFile(filePath);
 
-    let replayGain: string = '';
     const rg = (metadata.common as any).replaygain_track_gain;
     if (rg) {
       if (typeof rg === 'object') {
@@ -16,18 +24,15 @@ export async function analyzeFile(filePath: string) {
     }
 
     return new Promise((resolve) => {
-      let avgDb = '';
-      let maxDb = '';
-
       ffmpeg(filePath)
         .audioFilters('volumedetect')
         .format('null')
         .on('stderr', (line) => {
           if (line.includes('mean_volume')) {
-            avgDb = line.split(':')[1].trim();
+            avgDb = parseFloat(line.split(':')[1].trim());
           }
           if (line.includes('max_volume')) {
-            maxDb = line.split(':')[1].trim();
+            maxDb = parseFloat(line.split(':')[1].trim());
           }
         })
         .on('end', () => {
@@ -36,6 +41,6 @@ export async function analyzeFile(filePath: string) {
         .saveToFile('/dev/null');
     });
   } catch (err) {
-    return { replayGain: '', avgDb: '', maxDb: '' };
+    return { replayGain, avgDb, maxDb };
   }
 }
