@@ -11,8 +11,9 @@ interface FileData extends FileBasicAnalysisResult, FileFfmpegAnalysisResult {
 
 export default function App() {
   const [files, setFiles] = useState<FileData[]>([]);
-  const [targetDb, setTargetDb] = useState<string>('-7');
+  const [targetDb, setTargetDb] = useState<number>(-7.0);
   const [lastFolder, setLastFolder] = useState<string | null>(null);
+  const [selectionThreshold, setSelectionThreshold] = useState<number>(1.5);
 
   const analyzeFiles = (fileList: any[]) => {
     fileList.forEach(async (file: any, idx: number) => {
@@ -35,8 +36,23 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    await ipcRenderer.invoke('normalize-files', selected, parseFloat(targetDb));
+    await ipcRenderer.invoke('normalize-files', selected, targetDb);
     alert('Normalization completed.');
+  };
+
+  const selectRelevant = async () => {
+    files.forEach((file, idx) => {
+      setFiles((prev) => {
+        const updated = [...prev];
+        updated[idx] = {
+          ...file,
+          selected:
+            (file.maxDb && targetDb && Math.abs(file.maxDb - targetDb) > selectionThreshold) ||
+            false,
+        };
+        return updated;
+      });
+    });
   };
 
   const toggleSelect = (idx: number) => {
@@ -47,22 +63,44 @@ export default function App() {
     });
   };
 
+  const humanFileSize = (fileSizeBytes: number) => {
+    if (!fileSizeBytes) return 'unknown';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = fileSizeBytes;
+    let unitIndex = 0;
+    while (size > 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Library Gain</h1>
       <button onClick={pickFolder}>Pick Folder</button>
       <br />
-      <button onClick={() => lastFolder && analyzeFiles(files)}>Re-analyze Folder</button>
+      <button disabled={!lastFolder} onClick={() => lastFolder && analyzeFiles(files)}>Re-analyze Folder</button>
       <br />
       <label htmlFor="dbInput">Target Decibel: </label>
       <input
         id="dbInput"
-        type="text"
+        type="number"
         value={targetDb}
-        onChange={(e) => setTargetDb(e.target.value)}
-      />
+        onChange={(e) => setTargetDb(parseFloat(e.target.value))}
+      /> dB
       <br />
-      <button onClick={normalize}>Normalize Selected</button>
+      <label htmlFor="selectionThresholdInput">Selection Threshold: </label>
+      <input
+        id="selectionThresholdInput"
+        type="number"
+        value={selectionThreshold}
+        onChange={(e) => setSelectionThreshold(parseFloat(e.target.value))}
+      /> dB
+      <br />
+      <button disabled={!files.length} onClick={selectRelevant}>Select relevant files</button>
+      &nbsp;
+      <button disabled={!files.some((f) => f.selected)} onClick={normalize}>Normalize Selected</button>
       <br />
       <table border={1} cellPadding={5} style={{ marginTop: 20, width: '100%' }}>
         <thead>
@@ -87,8 +125,8 @@ export default function App() {
                 />
               </td>
               <td>{file.name}</td>
-              <td>{file.size}</td>
-              <td>{file.mtime}</td>
+              <td>{humanFileSize(file.size)}</td>
+              <td>{file.mtime ? file.mtime.replace('T', ' ') : '(unknown)'}</td>
               <td>{file.replayGain || '(unknown)'}</td>
               <td>{file.avgDb || '(unknown)'} dB</td>
               <td>{file.maxDb || '(unknown)'} dB</td>
