@@ -33,13 +33,14 @@ export async function normalizeFiles(files: FileNormalizationInputData[], mode: 
       } else {
         throw new Error('Unknown normalization mode');
       }
+      fileDbChangeToApply = Math.round(fileDbChangeToApply * 100) / 100; // round to 2 decimal places
       if (fileDbChangeToApply === 0) {
         // No change needed
         resolve(true);
         return;
       }
       console.log(
-        `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${fileDbChangeToApply}dB) (${mode} mode)`,
+        `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${fileDbChangeToApply}dB (${mode} mode)`,
       );
 
       ffmpeg(file.path)
