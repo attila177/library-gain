@@ -7,38 +7,19 @@ export interface FileNormalizationInputData {
   maxDb: number;
 }
 
-export enum NormalizeFilesMode {
-  Independent = 'Independent',
-  Album = 'Album',
-}
-
-async function normalizeFile(
+export async function normalizeFile(
   file: FileNormalizationInputData,
-  mode: NormalizeFilesMode,
-  targetDb: number,
-  albumDbChangeToApply: number,
+  fileDbChangeToApply: number,
 ) {
   return new Promise((resolve, reject) => {
     const dir = path.dirname(file.path);
     const base = path.basename(file.path, path.extname(file.path));
     const tempFile = path.join(dir, base + '_normalized.mp3');
-    let fileDbChangeToApply = 0;
-    if (mode === NormalizeFilesMode.Album) {
-      fileDbChangeToApply = albumDbChangeToApply;
-    } else if (mode === NormalizeFilesMode.Independent) {
-      fileDbChangeToApply = targetDb - file.maxDb;
-    } else {
-      throw new Error('Unknown normalization mode: ' + mode);
-    }
-    fileDbChangeToApply = Math.round(fileDbChangeToApply * 100) / 100; // round to 2 decimal places
     if (fileDbChangeToApply === 0) {
       // No change needed
       resolve(true);
       return;
     }
-    console.log(
-      `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${fileDbChangeToApply}dB (${mode} mode)`,
-    );
 
     ffmpeg(file.path)
       .audioFilters(`volume=${fileDbChangeToApply}dB`)
@@ -76,26 +57,4 @@ async function normalizeFile(
       })
       .save(tempFile);
   });
-}
-
-export async function normalizeFiles(
-  files: FileNormalizationInputData[],
-  mode: NormalizeFilesMode,
-  targetDb: number,
-) {
-  let albumDbChangeToApply = 0;
-  if (mode === NormalizeFilesMode.Album) {
-    // Calculate the overall change in dB for the album
-    const albumMaxDb = Math.max(...files.map((file) => file.maxDb));
-    albumDbChangeToApply = targetDb - albumMaxDb;
-  }
-
-  for (const file of files) {
-    try {
-      await normalizeFile(file, mode, targetDb, albumDbChangeToApply);
-    } catch (err) {
-      console.error(`Error normalizing file ${file.path}:`, err);
-    }
-  }
-  return true;
 }

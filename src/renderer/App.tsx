@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { FileBasicAnalysisResult } from '../backend/fileScanner';
 import { FileFfmpegAnalysisResult } from '../backend/analyzer';
-import { NormalizeFilesMode } from '../backend/normalizer';
+import path from 'path';
 
 const { ipcRenderer } = window.require('electron');
 
 interface FileData extends FileBasicAnalysisResult, FileFfmpegAnalysisResult {
   selected?: boolean;
+  ffmpegNormalizationError?: boolean;
+}
+
+enum NormalizeFilesMode {
+  Independent = 'Independent',
+  Album = 'Album',
 }
 
 export default function App() {
@@ -19,12 +24,14 @@ export default function App() {
     NormalizeFilesMode.Independent.toString(),
   );
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isNormalizing, setIsNormalizing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string | null>(null);
 
   const analyzeFiles = async (fileList: any[]) => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
     let done = 0;
+    setStatusText(`Starting analysis of ${fileList.length} files...`);
     const promises = fileList.map(async (file: any, idx: number) => {
       const analysis = await ipcRenderer.invoke('analyze-file', file.path);
       setFiles((prev) => {
@@ -37,7 +44,7 @@ export default function App() {
     });
     await Promise.all(promises);
     setIsAnalyzing(false);
-    setStatusText(` `);
+    setStatusText(`Done analyzing ${fileList.length} files.`);
   };
 
   const pickFolder = async () => {
@@ -50,17 +57,49 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    setStatusText(`Normalizing...`);
-    await ipcRenderer.invoke(
-      'normalize-files',
-      selected,
-      targetDb,
-      selectedMode as unknown as NormalizeFilesMode,
-    );
+    setStatusText(`Starting normalization...`);
+    setIsNormalizing(true);
+    let albumDbChangeToApply = 0;
+    let amountDone = 0;
+    let amountSuccess = 0;
+    let amountFailed = 0;
+    if (selectedMode === NormalizeFilesMode.Album) {
+      // Calculate the overall change in dB for the album
+      const albumMaxDb = Math.max(...files.map((file) => file.maxDb));
+      albumDbChangeToApply = targetDb - albumMaxDb;
+    }
+    for (const file of selected) {
+      const base = path.basename(file.path, path.extname(file.path));
+      setStatusText(
+        `Normalization ongoing: ${amountDone} of ${selected.length} done. ${amountSuccess} succeeded, ${amountFailed} failed. Current: ${base}`,
+      );
+      let fileDbChangeToApply = 0;
+      if (selectedMode === NormalizeFilesMode.Album) {
+        fileDbChangeToApply = albumDbChangeToApply;
+      } else if (selectedMode === NormalizeFilesMode.Independent) {
+        fileDbChangeToApply = targetDb - file.maxDb;
+      } else {
+        throw new Error('Unknown normalization mode: ' + selectedMode);
+      }
+      fileDbChangeToApply = Math.round(fileDbChangeToApply * 100) / 100; // round to 2 decimal places
+
+      console.log(
+        `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${fileDbChangeToApply}dB (${selectedMode} mode)`,
+      );
+      try {
+        await ipcRenderer.invoke('normalize-file', file, fileDbChangeToApply);
+        file.ffmpegNormalizationError = false;
+        amountSuccess++;
+      } catch (err) {
+        console.error(`Error normalizing file ${file.path}:`, err);
+        file.ffmpegNormalizationError = true;
+        amountFailed++;
+      }
+      amountDone++;
+    }
+
+    setIsNormalizing(false);
     console.log('Normalization completed. Starting to unselect and reanalyze files...');
-    selected.forEach((file) => {
-      file.selected = false;
-    });
     await analyzeFiles(selected);
     setStatusText('Normalization completed, files reanalyzed.');
   };
@@ -171,7 +210,8 @@ export default function App() {
         Normalize Selected
       </button>
       <br />
-      <span>{statusText}</span>
+      {isAnalyzing || isNormalizing ? '⏳⏳⏳' : ''}
+      <span style={isAnalyzing || isNormalizing ? {color: 'blue'} : {}}>{statusText}</span>
       <br />
       <table border={1} cellPadding={5} style={{ marginTop: 20, width: '100%' }}>
         <thead>
@@ -195,6 +235,7 @@ export default function App() {
                   onChange={() => toggleSelect(idx)}
                 />
                 {file.ffmpegAnalysisError ? '⚠️' : ''}
+                {file.ffmpegNormalizationError ? '❌' : ''}
               </td>
               <td>{file.name}</td>
               <td>{humanFileSize(file.size)}</td>
@@ -209,6 +250,3 @@ export default function App() {
     </div>
   );
 }
-
-const root = createRoot(document.getElementById('root')!);
-root.render(<App />);
