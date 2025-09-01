@@ -3,6 +3,8 @@ import { FileBasicAnalysisResult } from '../backend/fileScanner';
 import { FileFfmpegAnalysisResult } from '../backend/analyzer';
 import path from 'path';
 
+const sleepTime = 100; // ms
+
 const { ipcRenderer } = window.require('electron');
 
 interface FileData extends FileBasicAnalysisResult, FileFfmpegAnalysisResult {
@@ -26,25 +28,31 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isNormalizing, setIsNormalizing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const logAndSetStatusText = (s: string) => {
+    console.log(s);
+    setStatusText(s);
+  };
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   const analyzeFiles = async (fileList: any[]) => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
     let done = 0;
-    setStatusText(`Starting analysis of ${fileList.length} files...`);
+    logAndSetStatusText(`Starting analysis of ${fileList.length} files...`);
     const promises = fileList.map(async (file: any, idx: number) => {
       const analysis = await ipcRenderer.invoke('analyze-file', file.path);
       setFiles((prev) => {
         const updated = [...prev];
         updated[idx] = { ...file, ...analysis, selected: false };
         done++;
-        setStatusText(`Analyzing... finished ${done} of ${fileList.length} files.`);
+        logAndSetStatusText(`Analyzing... finished ${done} of ${fileList.length} files.`);
         return updated;
       });
     });
     await Promise.all(promises);
+    await sleep(sleepTime);
     setIsAnalyzing(false);
-    setStatusText(`Done analyzing ${fileList.length} files.`);
+    logAndSetStatusText(`Done analyzing ${fileList.length} files.`);
   };
 
   const pickFolder = async () => {
@@ -57,7 +65,7 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    setStatusText(`Starting normalization...`);
+    logAndSetStatusText(`Starting normalization...`);
     setIsNormalizing(true);
     let albumDbChangeToApply = 0;
     let amountDone = 0;
@@ -70,7 +78,7 @@ export default function App() {
     }
     for (const file of selected) {
       const base = path.basename(file.path, path.extname(file.path));
-      setStatusText(
+      logAndSetStatusText(
         `Normalization ongoing: ${amountDone} of ${selected.length} done. ${amountSuccess} succeeded, ${amountFailed} failed. Current: ${base}`,
       );
       let fileDbChangeToApply = 0;
@@ -97,11 +105,11 @@ export default function App() {
       }
       amountDone++;
     }
-
+    await sleep(sleepTime);
     setIsNormalizing(false);
     console.log('Normalization completed. Starting to unselect and reanalyze files...');
     await analyzeFiles(selected);
-    setStatusText('Normalization completed, files reanalyzed.');
+    logAndSetStatusText(`Normalization completed, files reanalyzed. ${amountSuccess} succeeded, ${amountFailed} failed.`);
   };
 
   const numberIsSet = (a: number | undefined | null) => {
