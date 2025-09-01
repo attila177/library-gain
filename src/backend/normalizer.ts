@@ -7,19 +7,43 @@ export interface FileNormalizationInputData {
   maxDb: number;
 }
 
-export async function normalizeFiles(files: FileNormalizationInputData[], targetDb: number) {
+export enum NormalizeFilesMode {
+  Independent = 'Independent',
+  Album = 'Album'
+}
+
+export async function normalizeFiles(files: FileNormalizationInputData[], mode: NormalizeFilesMode, targetDb: number) {
+  let albumDbChangeToApply = 0;
+  if (mode === NormalizeFilesMode.Album) {
+    // Calculate the overall change in dB for the album
+    const albumMaxDb = Math.max(...files.map(file => file.maxDb));
+    albumDbChangeToApply = targetDb - albumMaxDb;
+  }
+
   for (const file of files) {
     await new Promise((resolve, reject) => {
       const dir = path.dirname(file.path);
       const base = path.basename(file.path, path.extname(file.path));
       const tempFile = path.join(dir, base + '_normalized.mp3');
-      const delta = targetDb - file.maxDb;
+      let fileDbChangeToApply = 0;
+      if (mode === NormalizeFilesMode.Album) {
+        fileDbChangeToApply = albumDbChangeToApply;
+      } else if (mode === NormalizeFilesMode.Independent) {
+        fileDbChangeToApply = targetDb - file.maxDb;
+      } else {
+        throw new Error('Unknown normalization mode');
+      }
+      if (fileDbChangeToApply === 0) {
+        // No change needed
+        resolve(true);
+        return;
+      }
       console.log(
-        `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${delta}dB)`,
+        `Normalizing ${base} from ${file.maxDb}dB to ${targetDb}dB by applying volume filter with ${fileDbChangeToApply}dB) (${mode} mode)`,
       );
 
       ffmpeg(file.path)
-        .audioFilters(`volume=${delta}dB`)
+        .audioFilters(`volume=${fileDbChangeToApply}dB`)
         .audioCodec('libmp3lame') // use LAME encoder
         .audioBitrate('256k') // fallback CBR
         .outputOptions([

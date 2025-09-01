@@ -20,3 +20,6 @@ Can you generate me a zip file containing the source code for a functioning soft
 * there is a button for carrying out the "normalizing" action for selected files, which adjusts the volume of the mp3 file to the value of "target decibel", overwriting the original file
 * ideally you choose a programming language that is both suitable to the task and that I can understand well. my skills are: very good at typescript, very good at javascript, good at java, not so good at golang and python
 ```
+
+# Changelog
+* `album` and `independent` modes for calculation of which dB change should be applied to each file

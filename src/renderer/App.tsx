@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FileBasicAnalysisResult } from '../backend/fileScanner';
 import { FileFfmpegAnalysisResult } from '../backend/analyzer';
+import { NormalizeFilesMode } from '../backend/normalizer';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -14,6 +15,7 @@ export default function App() {
   const [targetDb, setTargetDb] = useState<number>(-7.0);
   const [lastFolder, setLastFolder] = useState<string | null>(null);
   const [selectionThreshold, setSelectionThreshold] = useState<number>(1.5);
+  const [selectedMode, setSelectedMode] = useState<string>(NormalizeFilesMode.Independent.toString());
 
   const analyzeFiles = (fileList: any[]) => {
     fileList.forEach(async (file: any, idx: number) => {
@@ -36,7 +38,7 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    await ipcRenderer.invoke('normalize-files', selected, targetDb);
+    await ipcRenderer.invoke('normalize-files', selected, targetDb, selectedMode as unknown as NormalizeFilesMode);
     alert('Normalization completed.');
   };
 
@@ -89,6 +91,16 @@ export default function App() {
         value={targetDb}
         onChange={(e) => setTargetDb(parseFloat(e.target.value))}
       /> dB
+      <br />
+      <label htmlFor="mode">Mode: </label>
+      <select
+        id="mode"
+        value={selectedMode}
+        onChange={(e) => setSelectedMode(e.target.value)}
+      >
+        <option value={NormalizeFilesMode.Independent.toString()}>Independent</option>
+        <option value={NormalizeFilesMode.Album.toString()}>Album</option>
+      </select>
       <br />
       <label htmlFor="selectionThresholdInput">Selection Threshold: </label>
       <input
