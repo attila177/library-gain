@@ -14,25 +14,30 @@ export default function App() {
   const [files, setFiles] = useState<FileData[]>([]);
   const [targetDb, setTargetDb] = useState<number>(-7.0);
   const [lastFolder, setLastFolder] = useState<string | null>(null);
-  const [selectionThreshold, setSelectionThreshold] = useState<number>(1.5);
+  const [selectionThreshold, setSelectionThreshold] = useState<number>(1);
   const [selectedMode, setSelectedMode] = useState<string>(
     NormalizeFilesMode.Independent.toString(),
   );
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
 
   const analyzeFiles = async (fileList: any[]) => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
+    let done = 0;
     const promises = fileList.map(async (file: any, idx: number) => {
       const analysis = await ipcRenderer.invoke('analyze-file', file.path);
       setFiles((prev) => {
         const updated = [...prev];
         updated[idx] = { ...file, ...analysis, selected: false };
+        done++;
+        setStatusText(`Analyzing... finished ${done} of ${fileList.length} files.`);
         return updated;
       });
     });
     await Promise.all(promises);
     setIsAnalyzing(false);
+    setStatusText(` `);
   };
 
   const pickFolder = async () => {
@@ -45,6 +50,7 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
+    setStatusText(`Normalizing...`);
     await ipcRenderer.invoke(
       'normalize-files',
       selected,
@@ -56,7 +62,7 @@ export default function App() {
       file.selected = false;
     });
     await analyzeFiles(selected);
-    alert('Normalization completed, files reanalyzed.');
+    setStatusText('Normalization completed, files reanalyzed.');
   };
 
   const numberIsSet = (a: number | undefined | null) => {
@@ -164,6 +170,8 @@ export default function App() {
       <button disabled={isAnalyzing || !files.some((f) => f.selected)} onClick={normalize}>
         Normalize Selected
       </button>
+      <br />
+      <span>{statusText}</span>
       <br />
       <table border={1} cellPadding={5} style={{ marginTop: 20, width: '100%' }}>
         <thead>
