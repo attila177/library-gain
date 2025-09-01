@@ -5,6 +5,7 @@ export interface FileFfmpegAnalysisResult {
   avgDb: number;
   maxDb: number;
   replayGain: string;
+  ffmpegAnalysisError: boolean;
 }
 
 export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisResult> {
@@ -24,7 +25,7 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
     }
 
     return new Promise((resolve) => {
-      ffmpeg(filePath)
+        ffmpeg(filePath)
         .audioFilters('volumedetect')
         .format('null')
         .on('stderr', (line) => {
@@ -36,11 +37,17 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
           }
         })
         .on('end', () => {
-          resolve({ replayGain, avgDb, maxDb });
+          resolve({ replayGain, avgDb, maxDb, ffmpegAnalysisError: false });
+        })
+        .on('error', (err) => {
+          console.error(`ffmpeg analysis failed on ${filePath}`, err);
+          resolve({ replayGain, avgDb, maxDb, ffmpegAnalysisError: true }); // graceful fallback
         })
         .saveToFile('/dev/null');
     });
   } catch (err) {
-    return { replayGain, avgDb, maxDb };
+    const result =  { replayGain, avgDb, maxDb, ffmpegAnalysisError: true };
+    console.error(`Error analyzing file ${filePath} with ffmpeg: (${JSON.stringify(result)})`, err);
+    return result;
   }
 }

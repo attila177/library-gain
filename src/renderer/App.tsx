@@ -18,16 +18,21 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState<string>(
     NormalizeFilesMode.Independent.toString(),
   );
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
-  const analyzeFiles = (fileList: any[]) => {
-    return fileList.map(async (file: any, idx: number) => {
+  const analyzeFiles = async (fileList: any[]) => {
+    if (isAnalyzing) return;
+    setIsAnalyzing(true);
+    const promises = fileList.map(async (file: any, idx: number) => {
       const analysis = await ipcRenderer.invoke('analyze-file', file.path);
       setFiles((prev) => {
         const updated = [...prev];
-        updated[idx] = { ...file, ...analysis };
+        updated[idx] = { ...file, ...analysis, selected: false };
         return updated;
       });
     });
+    await Promise.all(promises);
+    setIsAnalyzing(false);
   };
 
   const pickFolder = async () => {
@@ -35,7 +40,7 @@ export default function App() {
     if (!fileList || fileList.length === 0) return;
     setFiles(fileList);
     setLastFolder(fileList[0]?.folderPath || null); // keep track
-    analyzeFiles(fileList);
+    await analyzeFiles(fileList);
   };
 
   const normalize = async () => {
@@ -50,7 +55,7 @@ export default function App() {
     selected.forEach((file) => {
       file.selected = false;
     });
-    await Promise.all(analyzeFiles(selected));
+    await analyzeFiles(selected);
     alert('Normalization completed, files reanalyzed.');
   };
 
@@ -122,7 +127,10 @@ export default function App() {
       <h1>Library Gain</h1>
       <button onClick={pickFolder}>Pick Folder</button>
       <br />
-      <button disabled={!lastFolder} onClick={() => lastFolder && analyzeFiles(files)}>
+      <button
+        disabled={isAnalyzing || !lastFolder}
+        onClick={() => lastFolder && analyzeFiles(files)}
+      >
         Re-analyze Folder
       </button>
       <br />
@@ -149,11 +157,11 @@ export default function App() {
         onChange={(e) => setSelectionThreshold(parseFloat(e.target.value))}
       /> dB
       <br />
-      <button disabled={!files.length} onClick={selectRelevant}>
+      <button disabled={isAnalyzing || !files.length} onClick={selectRelevant}>
         Select relevant files
       </button>
       &nbsp;
-      <button disabled={!files.some((f) => f.selected)} onClick={normalize}>
+      <button disabled={isAnalyzing || !files.some((f) => f.selected)} onClick={normalize}>
         Normalize Selected
       </button>
       <br />
@@ -178,6 +186,7 @@ export default function App() {
                   checked={file.selected || false}
                   onChange={() => toggleSelect(idx)}
                 />
+                {file.ffmpegAnalysisError ? '⚠️' : ''}
               </td>
               <td>{file.name}</td>
               <td>{humanFileSize(file.size)}</td>
