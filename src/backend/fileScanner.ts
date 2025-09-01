@@ -11,6 +11,7 @@ export interface FileBasicAnalysisResult {
 }
 
 export async function scanFolder(folderPath: string): Promise<FileBasicAnalysisResult[]> {
+  console.log(`Starting folder scan of ${folderPath}...`);
   const files: FileBasicAnalysisResult[] = fs
     .readdirSync(folderPath)
     .filter((f) => f.toLowerCase().endsWith('.mp3'))
@@ -25,5 +26,6 @@ export async function scanFolder(folderPath: string): Promise<FileBasicAnalysisR
         folderPath: folderPath,
       } as FileBasicAnalysisResult;
     });
+  console.log(`Finished folder scan of ${folderPath}.\n`);
   return files;
 }

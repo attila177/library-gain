@@ -13,6 +13,7 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
   let maxDb: number = 0;
   let replayGain: string = '';
   try {
+    console.log(`Starting ffmpeg analysis of ${filePath}...`);
     const metadata = await mm.parseFile(filePath);
 
     const rg = (metadata.common as any).replaygain_track_gain;
@@ -37,6 +38,7 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
           }
         })
         .on('end', () => {
+          console.log(`Finished ffmpeg analysis of ${filePath}.\n`);
           resolve({ replayGain, avgDb, maxDb, ffmpegAnalysisError: false });
         })
         .on('error', (err) => {
