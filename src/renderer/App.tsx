@@ -28,6 +28,7 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isNormalizing, setIsNormalizing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const [shouldShowRelativeParentPath, setShouldShowRelativeParentPath] = useState<boolean>(false);
   const logAndSetStatusText = (s: string) => {
     console.log(s);
     setStatusText(s);
@@ -40,7 +41,7 @@ export default function App() {
     let done = 0;
     logAndSetStatusText(`Starting analysis of ${fileList.length} files...`);
     const promises = fileList.map(async (file: any, idx: number) => {
-      const analysis = await ipcRenderer.invoke('analyze-file', file.path);
+      const analysis = await ipcRenderer.invoke('analyze-file', file.fullFilePath);
       setFiles((prev) => {
         const updated = [...prev];
         updated[idx] = { ...file, ...analysis, selected: false };
@@ -60,13 +61,13 @@ export default function App() {
     if (!fileList || fileList.length === 0) return;
     setFiles([]);
     setFiles(fileList);
-    setLastFolder(fileList[0]?.folderPath || null); // keep track
+    setLastFolder(fileList[0]?.fullParentFolderPath || null); // keep track
     await analyzeFiles(fileList);
   };
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    logAndSetStatusText(`Starting normalization... ${selected[0]?.folderPath || ''}`);
+    logAndSetStatusText(`Starting normalization... ${selected[0]?.fullParentFolderPath || ''}`);
     setIsNormalizing(true);
     let albumDbChangeToApply = 0;
     let amountDone = 0;
@@ -78,7 +79,7 @@ export default function App() {
       albumDbChangeToApply = targetDb - albumMaxDb;
     }
     for (const file of selected) {
-      const base = path.basename(file.path, path.extname(file.path));
+      const base = path.basename(file.fullFilePath, path.extname(file.fullFilePath));
       logAndSetStatusText(
         `Normalization ongoing: ${amountDone} of ${selected.length} done. ${amountSuccess} succeeded, ${amountFailed} failed. Current: ${base}`,
       );
@@ -100,7 +101,7 @@ export default function App() {
         file.ffmpegNormalizationError = false;
         amountSuccess++;
       } catch (err) {
-        console.error(`Error normalizing file ${file.path}:`, err);
+        console.error(`Error normalizing file ${file.fullFilePath}:`, err);
         file.ffmpegNormalizationError = true;
         amountFailed++;
       }
@@ -244,6 +245,12 @@ export default function App() {
           <tr>
             <th>{files.reduce((acc, file) => acc + (file.selected ? 1 : 0), 0)} / {files.length}</th>
             <th>File Name</th>
+            <th>Path 
+                <input
+                  type="checkbox"
+                  checked={shouldShowRelativeParentPath}
+                  onChange={() => setShouldShowRelativeParentPath(!shouldShowRelativeParentPath)}
+                /></th>
             <th>File Size</th>
             <th>Modified Date</th>
             <th>Dur. {getTotalDurationString()}</th>
@@ -265,6 +272,7 @@ export default function App() {
                 {file.ffmpegNormalizationError ? '❌' : ''}
               </td>
               <td>{file.name}</td>
+              <td>{shouldShowRelativeParentPath ? file.relativeParentFolderPath : ''}</td>
               <td>{humanFileSize(file.size)}</td>
               <td>{file.mtime ? file.mtime.replace('T', ' ') : '(unknown)'}</td>
               <td>{getTrackDurationString(file.durationSeconds)}</td>

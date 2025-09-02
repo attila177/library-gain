@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 export interface FileNormalizationInputData {
-  path: string;
+  fullFilePath: string;
   maxDb: number;
   comment: string;
   ctime: string;
@@ -11,20 +11,20 @@ export interface FileNormalizationInputData {
 
 export async function normalizeFile(file: FileNormalizationInputData, fileDbChangeToApply: number) {
   return new Promise((resolve, reject) => {
-    console.log(`Starting ffmpeg normalization of ${file.path} with ${fileDbChangeToApply}dB...`);
-    const dir = path.dirname(file.path);
-    const base = path.basename(file.path, path.extname(file.path));
+    console.log(`Starting ffmpeg normalization of ${file.fullFilePath} with ${fileDbChangeToApply}dB...`);
+    const dir = path.dirname(file.fullFilePath);
+    const base = path.basename(file.fullFilePath, path.extname(file.fullFilePath));
     const tempFile = path.join(dir, base + '_normalized.mp3');
     if (fileDbChangeToApply === 0) {
       // No change needed
-      console.warn(`No change needed for ${file.path}.`);
+      console.warn(`No change needed for ${file.fullFilePath}.`);
       resolve(true);
       return;
     }
 
     const comment = `library gain changed volume by ${fileDbChangeToApply}dB. ctime: ${file.ctime}.${file.comment ? ` Previous comment: ${file.comment}` : ''}`;
 
-    ffmpeg(file.path)
+    ffmpeg(file.fullFilePath)
       .audioFilters(`volume=${fileDbChangeToApply}dB`)
       .audioCodec('libmp3lame') // use LAME encoder
       .audioBitrate('256k') // fallback CBR
@@ -50,15 +50,15 @@ export async function normalizeFile(file: FileNormalizationInputData, fileDbChan
       ])
       .on('end', () => {
         // Replace original with normalized
-        fs.renameSync(tempFile, file.path);
+        fs.renameSync(tempFile, file.fullFilePath);
         console.log(
-          `Finished ffmpeg normalization of ${file.path} with ${fileDbChangeToApply}dB.\n`,
+          `Finished ffmpeg normalization of ${file.fullFilePath} with ${fileDbChangeToApply}dB.\n`,
         );
         resolve(true);
       })
       .on('error', (err) => {
-        console.error(`ffmpeg normalization failed on ${file.path}`, err);
-        err.message = `ffmpeg normalization failed on ${file.path}: ${err.message}`;
+        console.error(`ffmpeg normalization failed on ${file.fullFilePath}`, err);
+        err.message = `ffmpeg normalization failed on ${file.fullFilePath}: ${err.message}`;
         if (fs.existsSync(tempFile)) {
           fs.unlinkSync(tempFile);
         }
