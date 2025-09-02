@@ -3,7 +3,7 @@ import { FileBasicAnalysisResult } from '../backend/fileScanner';
 import { FileFfmpegAnalysisResult } from '../backend/analyzer';
 import path from 'path';
 
-const sleepTime = 100; // ms
+const sleepTimePerFile = 10; // ms
 
 const { ipcRenderer } = window.require('electron');
 
@@ -50,7 +50,7 @@ export default function App() {
       });
     });
     await Promise.all(promises);
-    await sleep(sleepTime);
+    await sleep(sleepTimePerFile * fileList.length); // wait a bit to let UI catch up
     setIsAnalyzing(false);
     logAndSetStatusText(`Done analyzing ${fileList.length} files.`);
   };
@@ -58,6 +58,7 @@ export default function App() {
   const pickFolder = async () => {
     const fileList = await ipcRenderer.invoke('pick-folder');
     if (!fileList || fileList.length === 0) return;
+    setFiles([]);
     setFiles(fileList);
     setLastFolder(fileList[0]?.folderPath || null); // keep track
     await analyzeFiles(fileList);
@@ -65,7 +66,7 @@ export default function App() {
 
   const normalize = async () => {
     const selected = files.filter((f) => f.selected);
-    logAndSetStatusText(`Starting normalization...`);
+    logAndSetStatusText(`Starting normalization... ${selected[0]?.folderPath || ''}`);
     setIsNormalizing(true);
     let albumDbChangeToApply = 0;
     let amountDone = 0;
@@ -105,7 +106,7 @@ export default function App() {
       }
       amountDone++;
     }
-    await sleep(sleepTime);
+    await sleep(sleepTimePerFile * selected.length); // wait a bit to let UI catch up
     setIsNormalizing(false);
     console.log('Normalization completed. Starting to unselect and reanalyze files...');
     await analyzeFiles(selected);
@@ -175,6 +176,23 @@ export default function App() {
     return `${size.toFixed(2)} ${units[unitIndex]}`;
   };
 
+  const getTrackDurationString = (durationSeconds: number) => {
+    if (!durationSeconds) return '(unknown)';
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = durationSeconds % 60;
+    return `${minutes}:${Math.round(seconds).toString().padStart(2, '0')}`;
+  };
+
+  const getTotalDurationString = () => {
+    if (isAnalyzing || !files[0]?.durationSeconds) {
+      return '';
+    }
+    const rawMinutes = Math.round(files.reduce((acc, file) => acc + (file.durationSeconds || 0), 0) / 60);
+    const hours = Math.floor(rawMinutes / 60);
+    const modMinutes = rawMinutes % 60;
+    return `(${hours ? `${hours}h ` : ''}${Math.round(modMinutes).toString().padStart(2, '0')}m)`;
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Library Gain</h1>
@@ -224,10 +242,11 @@ export default function App() {
       <table border={1} cellPadding={5} style={{ marginTop: 20, width: '100%' }}>
         <thead>
           <tr>
-            <th></th>
+            <th>{files.reduce((acc, file) => acc + (file.selected ? 1 : 0), 0)} / {files.length}</th>
             <th>File Name</th>
             <th>File Size</th>
             <th>Modified Date</th>
+            <th>Dur. {getTotalDurationString()}</th>
             <th>Replay Gain</th>
             <th>Average dB</th>
             <th>Max dB</th>
@@ -248,6 +267,7 @@ export default function App() {
               <td>{file.name}</td>
               <td>{humanFileSize(file.size)}</td>
               <td>{file.mtime ? file.mtime.replace('T', ' ') : '(unknown)'}</td>
+              <td>{getTrackDurationString(file.durationSeconds)}</td>
               <td>{file.replayGain || '(unknown)'}</td>
               <td>{printNumber(file.avgDb)} dB</td>
               <td>{printNumber(file.maxDb)} dB</td>
