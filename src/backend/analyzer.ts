@@ -6,12 +6,16 @@ export interface FileFfmpegAnalysisResult {
   maxDb: number;
   replayGain: string;
   ffmpegAnalysisError: boolean;
+  durationSeconds: number;
+  comment: string;
 }
 
 export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisResult> {
   let avgDb: number = 0;
   let maxDb: number = 0;
+  let durationSeconds: number = 0;
   let replayGain: string = '';
+  let comment: string = '';
   try {
     console.log(`Starting ffmpeg analysis of ${filePath}...`);
     const metadata = await mm.parseFile(filePath);
@@ -23,6 +27,16 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
       } else {
         replayGain = String(rg);
       }
+    }
+
+    // Duration (in seconds, float)
+    if (metadata.format.duration) {
+      durationSeconds = metadata.format.duration;
+    }
+
+    // Common comment (usually an array of strings)
+    if (metadata.common.comment && metadata.common.comment.length > 0) {
+      comment = metadata.common.comment.join("; ");
     }
 
     return new Promise((resolve) => {
@@ -39,16 +53,16 @@ export async function analyzeFile(filePath: string): Promise<FileFfmpegAnalysisR
         })
         .on('end', () => {
           console.log(`Finished ffmpeg analysis of ${filePath}.\n`);
-          resolve({ replayGain, avgDb, maxDb, ffmpegAnalysisError: false });
+          resolve({ comment, durationSeconds, replayGain, avgDb, maxDb, ffmpegAnalysisError: false });
         })
         .on('error', (err) => {
           console.error(`ffmpeg analysis failed on ${filePath}`, err);
-          resolve({ replayGain, avgDb, maxDb, ffmpegAnalysisError: true }); // graceful fallback
+          resolve({ comment, durationSeconds, replayGain, avgDb, maxDb, ffmpegAnalysisError: true }); // graceful fallback
         })
         .saveToFile('/dev/null');
     });
   } catch (err) {
-    const result =  { replayGain, avgDb, maxDb, ffmpegAnalysisError: true };
+    const result =  { comment, durationSeconds, replayGain, avgDb, maxDb, ffmpegAnalysisError: true };
     console.error(`Error analyzing file ${filePath} with ffmpeg: (${JSON.stringify(result)})`, err);
     return result;
   }

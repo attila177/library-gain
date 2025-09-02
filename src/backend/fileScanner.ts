@@ -6,6 +6,8 @@ export interface FileBasicAnalysisResult {
   path: string;
   size: number;
   /** string with date in ISO format */
+  ctime: string;
+  /** string with date in ISO format */
   mtime: string;
   folderPath: string;
 }
@@ -22,6 +24,7 @@ export async function scanFolder(folderPath: string): Promise<FileBasicAnalysisR
         name: f,
         path: fullPath,
         size: stats.size,
+        ctime: stats.ctime.toISOString(),
         mtime: stats.mtime.toISOString(),
         folderPath: folderPath,
       } as FileBasicAnalysisResult;

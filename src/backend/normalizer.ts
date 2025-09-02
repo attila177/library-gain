@@ -5,12 +5,11 @@ import path from 'path';
 export interface FileNormalizationInputData {
   path: string;
   maxDb: number;
+  comment: string;
+  ctime: string;
 }
 
-export async function normalizeFile(
-  file: FileNormalizationInputData,
-  fileDbChangeToApply: number,
-) {
+export async function normalizeFile(file: FileNormalizationInputData, fileDbChangeToApply: number) {
   return new Promise((resolve, reject) => {
     console.log(`Starting ffmpeg normalization of ${file.path} with ${fileDbChangeToApply}dB...`);
     const dir = path.dirname(file.path);
@@ -22,6 +21,8 @@ export async function normalizeFile(
       resolve(true);
       return;
     }
+
+    const comment = `library gain changed volume by ${fileDbChangeToApply}dB. ctime: ${file.ctime}.${file.comment ? ` Previous comment: ${file.comment}` : ''}`;
 
     ffmpeg(file.path)
       .audioFilters(`volume=${fileDbChangeToApply}dB`)
@@ -43,11 +44,16 @@ export async function normalizeFile(
         // remove replaygain album peak metadata
         '-metadata',
         'replaygain_album_peak=',
+        // set comment field
+        `-metadata`,
+        `comment=${comment}`,
       ])
       .on('end', () => {
         // Replace original with normalized
         fs.renameSync(tempFile, file.path);
-        console.log(`Finished ffmpeg normalization of ${file.path} with ${fileDbChangeToApply}dB.\n`);
+        console.log(
+          `Finished ffmpeg normalization of ${file.path} with ${fileDbChangeToApply}dB.\n`,
+        );
         resolve(true);
       })
       .on('error', (err) => {
