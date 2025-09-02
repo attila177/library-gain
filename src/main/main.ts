@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import path from 'path';
-import { scanFolder } from '../backend/fileScanner';
+import { FileBasicAnalysisResult, scanFolder } from '../backend/fileScanner';
 import { analyzeFile } from '../backend/analyzer';
 import { FileNormalizationInputData, normalizeFile } from '../backend/normalizer';
 
@@ -24,10 +24,13 @@ app.whenReady().then(createWindow);
 ipcMain.handle('pick-folder', async () => {
   if (!win) return;
   const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });
-  if (result.canceled || result.filePaths.length === 0) return [];
+  if (result.canceled) return {folderPath: null, files: []};
   const folderPath = result.filePaths[0];
-  const files = await scanFolder(folderPath);
-  return files;
+  let files: FileBasicAnalysisResult[] = [];
+  if (result.filePaths.length > 0) {
+    files = await scanFolder(folderPath);
+  }
+  return {folderPath, files};
 });
 
 ipcMain.handle('analyze-file', async (_event, filePath: string) => {

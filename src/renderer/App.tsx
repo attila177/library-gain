@@ -59,12 +59,12 @@ export default function App() {
   };
 
   const pickFolder = async () => {
-    const fileList = await ipcRenderer.invoke('pick-folder');
-    if (!fileList || fileList.length === 0) return;
+    const { folderPath, files } = await ipcRenderer.invoke('pick-folder');
+    if (!folderPath || !files || files.length === 0) return;
     setFiles([]);
-    setFiles(fileList);
-    setLastFolder(fileList[0]?.fullParentFolderPath || null); // keep track
-    await analyzeFiles(fileList);
+    setFiles(files);
+    setLastFolder(folderPath);
+    await analyzeFiles(files);
   };
 
   const normalize = async () => {
@@ -253,7 +253,7 @@ export default function App() {
   return (
     <div style={{ padding: 20 }}>
       <h1>Library Gain</h1>
-      <button onClick={pickFolder}>Pick Folder</button>
+      <button onClick={pickFolder}>Pick Folder</button> {lastFolder || ''}
       <br />
       <button
         disabled={isAnalyzing || !lastFolder}
@@ -329,7 +329,7 @@ export default function App() {
                 {file.ffmpegAnalysisError ? '⚠️' : ''}
                 {file.ffmpegNormalizationError ? '❌' : ''}
               </td>
-              <td>{file.name}</td>
+              <td>{file.relativeParentFolderPath ? file.name.substring(file.relativeParentFolderPath.length + 1) : file.name}</td>
               <td>{shouldShowRelativeParentPath ? file.relativeParentFolderPath : ''}</td>
               <td>{humanFileSize(file.size)}</td>
               <td>{file.mtime ? file.mtime.replace('T', ' ') : '(unknown)'}</td>

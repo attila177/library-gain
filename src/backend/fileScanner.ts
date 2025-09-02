@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 export interface FileBasicAnalysisResult {
+  /** includes parent folders relative to library root */
   name: string;
   fullFilePath: string;
   size: number;
