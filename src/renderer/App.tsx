@@ -29,6 +29,8 @@ export default function App() {
   const [isNormalizing, setIsNormalizing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [shouldShowRelativeParentPath, setShouldShowRelativeParentPath] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<string | null>('fullFilePath');
+  const [sortAsc, setSortAsc] = useState<boolean | null>(true);
   const logAndSetStatusText = (s: string) => {
     console.log(s);
     setStatusText(s);
@@ -194,6 +196,60 @@ export default function App() {
     return `(${hours ? `${hours}h ` : ''}${Math.round(modMinutes).toString().padStart(2, '0')}m)`;
   };
 
+  const sortFilesByStringField = (field: keyof FileData) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+    setFiles((prev) => {
+      const updated = [...prev];
+      updated.sort((a, b) => {
+        const aValue = typeof a[field] === 'string' ? a[field] || '' : '';
+        const bValue = typeof b[field] === 'string' ? b[field] || '' : '';
+        return sortAsc ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      });
+      return updated;
+    });
+  };
+
+  const sortFilesByNumberField = (field: keyof FileData) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+    setFiles((prev) => {
+      const updated = [...prev];
+      updated.sort((a, b) => {
+        const aValue = typeof a[field] === 'number' ? a[field] || 0 : 0;
+        const bValue = typeof b[field] === 'number' ? b[field] || 0 : 0;
+        return sortAsc ? aValue - bValue : bValue - aValue;
+      });
+      return updated;
+    });
+  };
+
+  const sortFilesByBooleanField = (field: keyof FileData) => {
+    if (sortField === field) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+    setFiles((prev) => {
+      const updated = [...prev];
+      updated.sort((a, b) => {
+        const aValue = a[field] ? 1 : 0;
+        const bValue = b[field] ? 1 : 0;
+        return sortAsc ? aValue - bValue : bValue - aValue;
+      });
+      return updated;
+    });
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1>Library Gain</h1>
@@ -243,20 +299,22 @@ export default function App() {
       <table border={1} cellPadding={5} style={{ marginTop: 20, width: '100%' }}>
         <thead>
           <tr>
-            <th>{files.reduce((acc, file) => acc + (file.selected ? 1 : 0), 0)} / {files.length}</th>
-            <th>File Name</th>
-            <th>Path 
+            <th onClick={() => sortFilesByBooleanField('selected')}>
+              {files.reduce((acc, file) => acc + (file.selected ? 1 : 0), 0)} / {files.length}
+            </th>
+            <th onClick={() => sortFilesByStringField('name')}>File Name</th>
+            <th>Path
                 <input
                   type="checkbox"
                   checked={shouldShowRelativeParentPath}
                   onChange={() => setShouldShowRelativeParentPath(!shouldShowRelativeParentPath)}
                 /></th>
-            <th>File Size</th>
-            <th>Modified Date</th>
-            <th>Dur. {getTotalDurationString()}</th>
-            <th>Replay Gain</th>
-            <th>Average dB</th>
-            <th>Max dB</th>
+            <th onClick={() => sortFilesByNumberField('size')}>File Size</th>
+            <th onClick={() => sortFilesByStringField('mtime')}>Modified Date</th>
+            <th onClick={() => sortFilesByNumberField('durationSeconds')}>Dur. {getTotalDurationString()}</th>
+            <th onClick={() => sortFilesByStringField('replayGain')}>Replay Gain</th>
+            <th onClick={() => sortFilesByNumberField('avgDb')}>Average dB</th>
+            <th onClick={() => sortFilesByNumberField('maxDb')}>Max dB</th>
           </tr>
         </thead>
         <tbody>

@@ -22,6 +22,7 @@ Can you generate me a zip file containing the source code for a functioning soft
 ```
 
 # Changelog
-* `album` and `independent` modes for calculation of which dB change should be applied to each file (1.1.0)
-* write something into mp3 tag comment (1.2.0)
+* sort table by clicking header cell (1.4.0)
 * read subfolders recursively (1.3.0)
+* write something into mp3 tag comment (1.2.0)
+* `album` and `independent` modes for calculation of which dB change should be applied to each file (1.1.0)
